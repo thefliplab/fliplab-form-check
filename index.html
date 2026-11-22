@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>FlipLab Form Check</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Form Check">
+<meta name="theme-color" content="#0f1115">
+<style>
+:root{--bg:#0f1115;--panel:#181b22;--line:#2a2f3a;--text:#eef0f4;--mute:#8a91a0;--accent:#ff3d8b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;gap:10px}
+h1{font-size:17px;margin:0;font-weight:750;letter-spacing:.2px}
+h1 span{color:var(--accent)}
+.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;font-weight:650;cursor:pointer;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:6px;user-select:none;-webkit-user-select:none}
+.btn:active{transform:scale(.96)}
+.btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.big{min-width:64px;font-size:18px}
+.btn:disabled{opacity:.4}
+label.btn{position:relative;overflow:hidden}
+label.btn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px}
+#status{color:var(--mute);margin-top:14px;font-size:14px;min-height:20px}
+#status.err{color:#ff8a8a}
+#empty{margin:24px 14px;border:2px dashed var(--line);border-radius:18px;padding:40px 20px;text-align:center}
+#empty h2{margin:0 0 6px;font-size:22px}
+#empty p{color:var(--mute);margin:0 0 20px}
+#empty .btn{background:var(--accent);border-color:var(--accent);color:#fff;font-size:17px;padding:12px 22px}
+#app{display:none}
+#stage{position:relative;margin:0 auto;background:#000;touch-action:none;overflow:hidden}
+#stage video,#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hint{text-align:center;color:var(--mute);font-size:13px;padding:8px 14px 0;min-height:26px}
+#hint b{color:var(--text)}
+.panel{max-width:900px;margin:0 auto;padding:8px 12px 24px}
+.row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.row.center{justify-content:center}
+#scrub{flex:1;accent-color:var(--accent);height:32px;min-width:0}
+#time{font-variant-numeric:tabular-nums;color:var(--mute);font-size:13px;min-width:98px;text-align:right}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg .btn{border:0;border-radius:0;min-width:48px}
+.seg .btn+.btn{border-left:1px solid var(--line)}
+.label{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;width:100%;margin:6px 0 -4px}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.sw.on{border-color:#fff}
+.spacer{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>FlipLab <span>Form Check</span></h1>
+  <label class="btn" id="newBtn" style="display:none">New video<input type="file" accept="video/*,.mov,.mp4,.m4v,.webm" id="file2"></label>
+</header>
+
+<div id="empty">
+  <h2>Load a tumbling clip</h2>
+  <p>Pick a video from your phone. It stays on your device and is never uploaded.</p>
+  <label class="btn">Choose video<input type="file" accept="video/*,.mov,.mp4,.m4v,.webm" id="file"></label>
+  <div id="status"></div>
+</div>
+
+<div id="app">
+  <div id="stage">
+    <video id="vid" playsinline muted preload="auto"></video>
+    <canvas id="cv"></canvas>
+  </div>
+  <div id="hint"></div>
+  <div class="panel">
+    <div class="row">
+      <input type="range" id="scrub" min="0" max="1" step="0.001" value="0">
+      <span id="time">0.00s · f0</span>
+    </div>
+    <div class="row center">
+      <button class="btn big" id="back" title="Back 1 frame">◀︎ 1</button>
+      <button class="btn big" id="play">▶︎</button>
+      <button class="btn big" id="fwd" title="Forward 1 frame">1 ▶︎</button>
+      <button class="btn" id="loop">Loop</button>
+    </div>
+    <div class="row center">
+      <div class="seg" id="speeds">
+        <button class="btn" data-r="0.1">0.1×</button>
+        <button class="btn" data-r="0.25">¼×</button>
+        <button class="btn on" data-r="0.5">½×</button>
+        <button class="btn" data-r="1">1×</button>
+      </div>
+      <div class="seg" id="fpsSeg">
+        <button class="btn on" data-f="30">30fps</button>
+        <button class="btn" data-f="60">60fps</button>
+      </div>
+    </div>
+
+    <div class="label">Markup</div>
+    <div class="row">
+      <div class="seg" id="tools">
+        <button class="btn on" data-t="angle">∠ Angle</button>
+        <button class="btn" data-t="line">╱ Line</button>
+        <button class="btn" data-t="pen">✎ Draw</button>
+      </div>
+      <div id="colors" style="display:flex;gap:6px"></div>
+      <span class="spacer"></span>
+      <button class="btn" id="undo">Undo</button>
+      <button class="btn" id="clear">Clear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const vid=$('vid'),cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
+const scrub=$('scrub'),timeEl=$('time'),playBtn=$('play'),hint=$('hint');
+const COLORS=['#ff3d8b','#22d3ee','#facc15','#ffffff'];
+let color=COLORS[0],tool='angle',fps=30,shapes=[],pending=[],cur=null,dragPt=null;
+let W=0,H=0,dpr=1,url=null,scrubbing=false;
+
+// ---------- loading ----------
+let loadTimer=null;
+function status(msg,err){const el=$('status');el.textContent=msg;el.className=err?'err':'';}
+function showApp(){
+  $('empty').style.display='none';
+  $('app').style.display='block';
+  $('newBtn').style.display='inline-flex';
+}
+function loadFile(f){
+  if(!f){status('No video was selected.',true);return;}
+  status('Loading "'+f.name+'"…');
+  if(url) URL.revokeObjectURL(url);
+  url=URL.createObjectURL(f);
+  shapes=[];pending=[];
+  vid.removeAttribute('src');
+  vid.src=url;
+  vid.load();
+  clearTimeout(loadTimer);
+  loadTimer=setTimeout(()=>{
+    if(!vid.videoWidth){
+      $('empty').style.display='block';$('app').style.display='none';
+      status('This video is taking a while to open. If nothing happens, try a shorter clip or open this page in Safari/Chrome.',true);
+    }
+  },8000);
+}
+function onPick(e){const f=e.target.files&&e.target.files[0];loadFile(f);e.target.value='';}
+$('file').addEventListener('change',onPick);
+$('file2').addEventListener('change',onPick);
+vid.addEventListener('error',()=>{
+  clearTimeout(loadTimer);
+  $('empty').style.display='block';$('app').style.display='none';
+  const code=vid.error?vid.error.code:'?';
+  status('Couldn\'t play this video (error '+code+'). Try another clip, or open this page in Safari/Chrome.',true);
+});
+function ready(){
+  if(!vid.videoWidth) return;
+  clearTimeout(loadTimer);
+  status('');
+  showApp();
+  scrub.max=vid.duration||1;
+  vid.playbackRate=+document.querySelector('#speeds .on').dataset.r;
+  layout();updateTime();setHint();
+  // nudge the first frame to render on iOS
+  if(vid.currentTime===0){try{vid.currentTime=0.001;}catch(_){}}
+}
+vid.addEventListener('loadedmetadata',ready);
+vid.addEventListener('loadeddata',ready);
+// drag & drop on desktop
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)loadFile(f);});
+
+// ---------- layout ----------
+function layout(){
+  if(!vid.videoWidth) return;
+  const ratio=vid.videoWidth/vid.videoHeight;
+  const maxW=Math.min(window.innerWidth,900), maxH=window.innerHeight*0.62;
+  W=Math.min(maxW,maxH*ratio); H=W/ratio;
+  stage.style.width=W+'px';stage.style.height=H+'px';
+  dpr=window.devicePixelRatio||1;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  draw();
+}
+window.addEventListener('resize',layout);
+
+// ---------- playback ----------
+function fmt(t){return t.toFixed(2)+'s · f'+Math.round(t*fps);}
+function updateTime(){
+  timeEl.textContent=fmt(vid.currentTime);
+  if(!scrubbing) scrub.value=vid.currentTime;
+}
+function tick(){updateTime(); if(!vid.paused) requestAnimationFrame(tick);}
+vid.addEventListener('play',()=>{playBtn.textContent='❚❚';requestAnimationFrame(tick);});
+vid.addEventListener('pause',()=>{playBtn.textContent='▶︎';updateTime();});
+vid.addEventListener('seeked',updateTime);
+vid.addEventListener('ended',()=>{playBtn.textContent='▶︎';});
+playBtn.onclick=()=>{
+  if(vid.paused){ if(vid.ended) vid.currentTime=0; vid.play().catch(()=>{}); }
+  else vid.pause();
+};
+function step(n){
+  vid.pause();
+  vid.currentTime=Math.min(vid.duration,Math.max(0,vid.currentTime+n/fps));
+}
+$('back').onclick=()=>step(-1);
+$('fwd').onclick=()=>step(1);
+$('loop').onclick=e=>{vid.loop=!vid.loop;e.currentTarget.classList.toggle('on',vid.loop);};
+scrub.addEventListener('input',()=>{scrubbing=true;vid.pause();vid.currentTime=+scrub.value;timeEl.textContent=fmt(+scrub.value);});
+scrub.addEventListener('change',()=>{scrubbing=false;});
+function segment(id,attr,fn){
+  document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#'+id+' .btn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');fn(b.dataset[attr]);
+  });
+}
+segment('speeds','r',r=>vid.playbackRate=+r);
+segment('fpsSeg','f',f=>{fps=+f;updateTime();});
+segment('tools','t',t=>{tool=t;pending=[];draw();setHint();});
+
+document.addEventListener('keydown',e=>{
+  if(!vid.src) return;
+  if(e.key==='ArrowLeft'){step(-1);e.preventDefault();}
+  else if(e.key==='ArrowRight'){step(1);e.preventDefault();}
+  else if(e.key===' '){playBtn.click();e.preventDefault();}
+});
+
+// ---------- colors ----------
+COLORS.forEach((c,i)=>{
+  const b=document.createElement('button');
+  b.className='sw'+(i===0?' on':'');b.style.background=c;b.setAttribute('aria-label','color');
+  b.onclick=()=>{color=c;document.querySelectorAll('.sw').forEach(x=>x.classList.remove('on'));b.classList.add('on');};
+  $('colors').appendChild(b);
+});
+
+// ---------- hints ----------
+function setHint(){
+  if(tool==='angle'){
+    const steps=['Tap the <b>first end</b> (e.g. shoulder)','Tap the <b>joint</b> (e.g. hip)','Tap the <b>other end</b> (e.g. knee)'];
+    hint.innerHTML=steps[pending.length]+' · drag any dot to adjust';
+  } else if(tool==='line') hint.innerHTML='Drag to draw a line · drag any dot to adjust';
+  else hint.innerHTML='Draw freely on the frame';
+}
+
+// ---------- drawing ----------
+const px=p=>({x:p.x*W,y:p.y*H});
+function strokePath(fn,c,w){
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=w+3;ctx.beginPath();fn();ctx.stroke();
+  ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();fn();ctx.stroke();
+}
+function dot(p,c){
+  ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
+  ctx.fillStyle=c;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.stroke();
+}
+function pill(text,x,y,c){
+  ctx.font='700 15px system-ui,-apple-system,sans-serif';
+  const w=ctx.measureText(text).width+14,h=24;
+  ctx.fillStyle='rgba(0,0,0,.72)';
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(x-w/2,y-h/2,w,h,12); else ctx.rect(x-w/2,y-h/2,w,h);
+  ctx.fill();
+  ctx.fillStyle=c;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+1);
+}
+function drawShape(s){
+  const P=s.pts.map(px);
+  if(s.type==='pen'){
+    strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);P.forEach(p=>ctx.lineTo(p.x,p.y));},s.color,3);
+    return;
+  }
+  if(s.type==='line'){
+    strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);},s.color,3);
+    P.forEach(p=>dot(p,s.color));
+    return;
+  }
+  if(s.type==='angle'){
+    const [a,v,c]=P;
+    strokePath(()=>{ctx.moveTo(a.x,a.y);ctx.lineTo(v.x,v.y);ctx.lineTo(c.x,c.y);},s.color,3);
+    const a1=Math.atan2(a.y-v.y,a.x-v.x),a2=Math.atan2(c.y-v.y,c.x-v.x);
+    let d=a2-a1; while(d>Math.PI)d-=2*Math.PI; while(d<=-Math.PI)d+=2*Math.PI;
+    const r=Math.min(30,Math.hypot(a.x-v.x,a.y-v.y)*.6,Math.hypot(c.x-v.x,c.y-v.y)*.6);
+    ctx.strokeStyle=s.color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(v.x,v.y,r,a1,a1+d,d<0);ctx.stroke();
+    P.forEach(p=>dot(p,s.color));
+    const deg=Math.round(Math.abs(d)*180/Math.PI);
+    const bis=a1+d/2;
+    pill(deg+'°',v.x-Math.cos(bis)*44,v.y-Math.sin(bis)*44,s.color);
+  }
+}
+function draw(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  shapes.forEach(drawShape);
+  if(cur) drawShape(cur);
+  if(pending.length){
+    const P=pending.map(px);
+    if(P.length===2) strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);},color,3);
+    P.forEach(p=>dot(p,color));
+  }
+}
+
+// ---------- pointer input ----------
+function pos(e){
+  const r=cv.getBoundingClientRect();
+  return {x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};
+}
+function hit(n){
+  const p=px(n);
+  const all=[...pending];
+  shapes.forEach(s=>{if(s.type!=='pen') all.push(...s.pts);});
+  for(let i=all.length-1;i>=0;i--){
+    const q=px(all[i]);
+    if(Math.hypot(q.x-p.x,q.y-p.y)<22) return all[i];
+  }
+  return null;
+}
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  cv.setPointerCapture(e.pointerId);
+  vid.pause();
+  const n=pos(e);
+  const h=hit(n);
+  if(h){dragPt=h;return;}
+  if(tool==='line'){cur={type:'line',pts:[n,{...n}],color};}
+  else if(tool==='pen'){cur={type:'pen',pts:[n],color};}
+  else if(tool==='angle'){
+    const pt={...n};pending.push(pt);dragPt=pt;
+    if(pending.length===3){shapes.push({type:'angle',pts:pending,color});pending=[];}
+    setHint();
+  }
+  draw();
+});
+cv.addEventListener('pointermove',e=>{
+  if(!dragPt&&!cur) return;
+  const n=pos(e);
+  if(dragPt){dragPt.x=n.x;dragPt.y=n.y;}
+  else if(cur.type==='line'){cur.pts[1]=n;}
+  else if(cur.type==='pen'){cur.pts.push(n);}
+  draw();
+});
+function end(){
+  if(cur){
+    if(cur.type==='line'){
+      const a=px(cur.pts[0]),b=px(cur.pts[1]);
+      if(Math.hypot(a.x-b.x,a.y-b.y)>8) shapes.push(cur);
+    } else if(cur.pts.length>1) shapes.push(cur);
+  }
+  cur=null;dragPt=null;draw();
+}
+cv.addEventListener('pointerup',end);
+cv.addEventListener('pointercancel',end);
+
+$('undo').onclick=()=>{if(pending.length) pending.pop(); else shapes.pop(); setHint(); draw();};
+$('clear').onclick=()=>{shapes=[];pending=[];setHint();draw();};
+})();
+</script>
+</body>
+</html>
