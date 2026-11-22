@@ -47,6 +47,9 @@ label.btn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opac
 .sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
 .sw.on{border-color:#fff}
 .spacer{flex:1}
+.btn.rec{background:#e11d48;border-color:#e11d48;color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.7}}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(20,22,28,.95);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:12px;font-size:14px;max-width:90vw;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none;z-index:10}
 </style>
 </head>
 <body>
@@ -92,6 +95,11 @@ label.btn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opac
       </div>
     </div>
 
+    <div class="label">Save &amp; share</div>
+    <div class="row">
+      <button class="btn" id="saveFrame">📷 Save frame</button>
+      <button class="btn" id="recBtn">● Record clip</button>
+    </div>
     <div class="label">Markup</div>
     <div class="row">
       <div class="seg" id="tools">
@@ -239,43 +247,44 @@ function setHint(){
 }
 
 // ---------- drawing ----------
+let g=ctx;
 const px=p=>({x:p.x*W,y:p.y*H});
 function strokePath(fn,c,w){
-  ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=w+3;ctx.beginPath();fn();ctx.stroke();
-  ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();fn();ctx.stroke();
+  g.lineCap='round';g.lineJoin='round';
+  g.strokeStyle='rgba(0,0,0,.55)';g.lineWidth=w+3;g.beginPath();fn();g.stroke();
+  g.strokeStyle=c;g.lineWidth=w;g.beginPath();fn();g.stroke();
 }
 function dot(p,c){
-  ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
-  ctx.fillStyle=c;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.stroke();
+  g.beginPath();g.arc(p.x,p.y,6,0,Math.PI*2);
+  g.fillStyle=c;g.fill();g.lineWidth=2;g.strokeStyle='rgba(0,0,0,.6)';g.stroke();
 }
 function pill(text,x,y,c){
-  ctx.font='700 15px system-ui,-apple-system,sans-serif';
-  const w=ctx.measureText(text).width+14,h=24;
-  ctx.fillStyle='rgba(0,0,0,.72)';
-  ctx.beginPath();
-  if(ctx.roundRect) ctx.roundRect(x-w/2,y-h/2,w,h,12); else ctx.rect(x-w/2,y-h/2,w,h);
-  ctx.fill();
-  ctx.fillStyle=c;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+1);
+  g.font='700 15px system-ui,-apple-system,sans-serif';
+  const w=g.measureText(text).width+14,h=24;
+  g.fillStyle='rgba(0,0,0,.72)';
+  g.beginPath();
+  if(g.roundRect) g.roundRect(x-w/2,y-h/2,w,h,12); else g.rect(x-w/2,y-h/2,w,h);
+  g.fill();
+  g.fillStyle=c;g.textAlign='center';g.textBaseline='middle';g.fillText(text,x,y+1);
 }
 function drawShape(s){
   const P=s.pts.map(px);
   if(s.type==='pen'){
-    strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);P.forEach(p=>ctx.lineTo(p.x,p.y));},s.color,3);
+    strokePath(()=>{g.moveTo(P[0].x,P[0].y);P.forEach(p=>g.lineTo(p.x,p.y));},s.color,3);
     return;
   }
   if(s.type==='line'){
-    strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);},s.color,3);
+    strokePath(()=>{g.moveTo(P[0].x,P[0].y);g.lineTo(P[1].x,P[1].y);},s.color,3);
     P.forEach(p=>dot(p,s.color));
     return;
   }
   if(s.type==='angle'){
     const [a,v,c]=P;
-    strokePath(()=>{ctx.moveTo(a.x,a.y);ctx.lineTo(v.x,v.y);ctx.lineTo(c.x,c.y);},s.color,3);
+    strokePath(()=>{g.moveTo(a.x,a.y);g.lineTo(v.x,v.y);g.lineTo(c.x,c.y);},s.color,3);
     const a1=Math.atan2(a.y-v.y,a.x-v.x),a2=Math.atan2(c.y-v.y,c.x-v.x);
     let d=a2-a1; while(d>Math.PI)d-=2*Math.PI; while(d<=-Math.PI)d+=2*Math.PI;
     const r=Math.min(30,Math.hypot(a.x-v.x,a.y-v.y)*.6,Math.hypot(c.x-v.x,c.y-v.y)*.6);
-    ctx.strokeStyle=s.color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(v.x,v.y,r,a1,a1+d,d<0);ctx.stroke();
+    g.strokeStyle=s.color;g.lineWidth=2;g.beginPath();g.arc(v.x,v.y,r,a1,a1+d,d<0);g.stroke();
     P.forEach(p=>dot(p,s.color));
     const deg=Math.round(Math.abs(d)*180/Math.PI);
     const bis=a1+d/2;
@@ -283,15 +292,99 @@ function drawShape(s){
   }
 }
 function draw(){
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,W,H);
+  g=ctx;
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,W,H);
   shapes.forEach(drawShape);
   if(cur) drawShape(cur);
   if(pending.length){
     const P=pending.map(px);
-    if(P.length===2) strokePath(()=>{ctx.moveTo(P[0].x,P[0].y);ctx.lineTo(P[1].x,P[1].y);},color,3);
+    if(P.length===2) strokePath(()=>{g.moveTo(P[0].x,P[0].y);g.lineTo(P[1].x,P[1].y);},color,3);
     P.forEach(p=>dot(p,color));
   }
+}
+
+// ---------- export (frame + clip) ----------
+const ec=document.createElement('canvas');
+function composite(){
+  const vw=vid.videoWidth,vh=vid.videoHeight;
+  if(ec.width!==vw||ec.height!==vh){ec.width=vw;ec.height=vh;}
+  const k=vw/W, c=ec.getContext('2d');
+  c.setTransform(1,0,0,1,0,0);
+  c.drawImage(vid,0,0,vw,vh);
+  c.setTransform(k,0,0,k,0,0);
+  g=c;
+  shapes.forEach(drawShape);
+  // small watermark
+  c.font='700 12px system-ui,-apple-system,sans-serif';
+  c.textAlign='right';c.textBaseline='bottom';
+  c.fillStyle='rgba(0,0,0,.45)';c.fillText('FlipLab Studios',W-9,H-7);
+  c.fillStyle='rgba(255,255,255,.85)';c.fillText('FlipLab Studios',W-10,H-8);
+  g=ctx;
+}
+function toast(msg,ms){const t=$('toast');t.textContent=msg;t.style.opacity=1;clearTimeout(t._h);if(ms!==0)t._h=setTimeout(()=>t.style.opacity=0,ms||2500);}
+async function deliver(blob,name){
+  const file=new File([blob],name,{type:blob.type});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'FlipLab Form Check'});
+      return;
+    }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  toast('Saved to your downloads');
+}
+function stamp(){const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+String(d.getSeconds()).padStart(2,'0');}
+$('saveFrame').onclick=()=>{
+  vid.pause();
+  composite();
+  ec.toBlob(b=>{ if(b) deliver(b,'formcheck-'+stamp()+'.png'); else toast('Couldn\'t save this frame'); },'image/png');
+};
+let rec=null,recRAF=0;
+function pickMime(){
+  const opts=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  if(!window.MediaRecorder) return null;
+  for(const m of opts){ try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(_){} }
+  return '';
+}
+function stopRec(){ if(rec&&rec.state!=='inactive') rec.stop(); }
+$('recBtn').onclick=()=>{
+  if(rec){ stopRec(); return; }
+  const mime=pickMime();
+  if(mime===null||!ec.captureStream){ toast('Clip recording isn\'t supported in this browser. Try Chrome.',4000); return; }
+  composite();
+  const stream=ec.captureStream(30);
+  try{ rec=mime?new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8e6}):new MediaRecorder(stream); }
+  catch(e){ toast('Couldn\'t start recording',3000); rec=null; return; }
+  const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  rec.onstop=()=>{
+    cancelAnimationFrame(recRAF);
+    vid.pause();
+    const type=(rec.mimeType||mime||'video/webm').split(';')[0];
+    const ext=type.includes('mp4')?'mp4':'webm';
+    rec=null; setRecUI(false);
+    const blob=new Blob(chunks,{type});
+    if(!blob.size){ toast('Nothing was recorded',3000); return; }
+    deliver(blob,'formcheck-'+stamp()+'.'+ext);
+  };
+  const loop=()=>{ composite(); recRAF=requestAnimationFrame(loop); };
+  if(vid.ended) vid.currentTime=0;
+  rec.start(250);
+  setRecUI(true);
+  loop();
+  vid.play().catch(()=>{});
+};
+vid.addEventListener('ended',()=>{ if(rec) stopRec(); });
+function setRecUI(on){
+  const b=$('recBtn');
+  b.classList.toggle('rec',on);
+  b.textContent=on?'■ Stop & save':'● Record clip';
+  if(on) toast('Recording… plays at '+vid.playbackRate+'× from here. Tap Stop when done.',0);
+  else $('toast').style.opacity=0;
 }
 
 // ---------- pointer input ----------
@@ -349,5 +442,6 @@ $('undo').onclick=()=>{if(pending.length) pending.pop(); else shapes.pop(); setH
 $('clear').onclick=()=>{shapes=[];pending=[];setHint();draw();};
 })();
 </script>
+<div id="toast"></div>
 </body>
 </html>
